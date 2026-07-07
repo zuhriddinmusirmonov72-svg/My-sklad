@@ -1,12 +1,12 @@
 services:
   # Backend API Service
   - type: web
-    name: ecommerce-backend
+    name: my-sklad-backend
     env: node
     region: oregon
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm run start:prod
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && node dist/main
     envVars:
       - key: NODE_ENV
         value: production
@@ -14,16 +14,28 @@ services:
         value: 3000
       - key: DATABASE_URL
         fromDatabase:
-          name: ecommerce-db
+          name: my-sklad-db
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: API_PREFIX
+        value: api/v1
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: THROTTLE_TTL
+        value: 60
+      - key: THROTTLE_LIMIT
+        value: 100
     healthCheckPath: /api/v1
 
 databases:
-  - name: ecommerce-db
+  - name: my-sklad-db
     plan: free
-    databaseName: ecommerce
-    user: ecommerce_user
+    databaseName: my_sklad
+    user: my_sklad_user

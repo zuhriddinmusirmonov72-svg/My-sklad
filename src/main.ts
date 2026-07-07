@@ -29,9 +29,15 @@ async function bootstrap() {
   app.use(compression());
 
   // CORS configuration
+  const allowedOrigins = corsOrigin === '*' 
+    ? true  // Allow all origins
+    : corsOrigin.split(',').map((origin) => origin.trim());
+  
   app.enableCors({
-    origin: corsOrigin.split(',').map((origin) => origin.trim()),
-    credentials: true,
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    credentials: corsOrigin !== '*',
   });
 
   // Global API prefix
