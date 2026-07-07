@@ -5,8 +5,8 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: npm install && DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy" npx prisma generate && npm run build
-    startCommand: npx prisma migrate deploy && node dist/main
+    buildCommand: sh render-build.sh
+    startCommand: sh render-start.sh
     envVars:
       - key: NODE_ENV
         value: production
