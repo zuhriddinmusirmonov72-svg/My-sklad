@@ -1,15 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams } from "react-router";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import PageMeta from "../../components/common/PageMeta";
 import { Product, OrderLine, OrderStatus } from "./types";
 import { useOrders } from "./OrdersContext";
+import FilterModal from "../../components/FilterModal";
 
 export default function NewOrder() {
   const { id } = useParams();
   const { products, orders, addOrder, updateOrder, updateProduct } = useOrders();
   
   const existingOrder = id ? orders.find(o => o.id === Number(id)) : null;
+
+  // ✅ Yaratilgan buyurtma ID sini saqlaymiz
+  const [createdOrderId, setCreatedOrderId] = useState<number | null>(existingOrder?.id || null);
 
   const [status, setStatus] = useState<OrderStatus>(existingOrder?.status || "Jo'natilmagan");
   const [customer, setCustomer] = useState(existingOrder?.customer || "");
@@ -29,15 +33,19 @@ export default function NewOrder() {
   const [customerSuggestions, setCustomerSuggestions] = useState<string[]>([]);
   const [showCustomerSug, setShowCustomerSug] = useState(false);
   const [focusedLineId, setFocusedLineId] = useState<number | null>(null); // Qaysi qatorga fokus berish kerakligi
+  const [showFilterModal, setShowFilterModal] = useState(false); // Filter modal
+  const [showPrintMenu, setShowPrintMenu] = useState(false); // Print menu
   const searchRef = useRef<HTMLDivElement>(null);
   const customerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null); // Mahsulot qidirish input uchun
   const lineQtyRefs = useRef<Map<number, HTMLInputElement>>(new Map()); // Jadval ichidagi miqdor inputlar
+  const printMenuRef = useRef<HTMLDivElement>(null); // Print menu ref
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowSug(false);
       if (customerRef.current && !customerRef.current.contains(e.target as Node)) setShowCustomerSug(false);
+      if (printMenuRef.current && !printMenuRef.current.contains(e.target as Node)) setShowPrintMenu(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -76,7 +84,23 @@ export default function NewOrder() {
   const handleSearch = (val: string) => {
     setSearch(val);
     if (val.trim()) {
-      setSuggestions(products.filter(p => p.name.toLowerCase().includes(val.toLowerCase())));
+      const query = val.toLowerCase().trim();
+      
+      // Qidiruv so'zlarini ajratish (masalan: "al 95" -> ["al", "95"])
+      const searchWords = query.split(/\s+/);
+      
+      // Filter: har bir so'z mahsulot nomida yoki grammida bo'lishi kerak
+      const filtered = products.filter(p => {
+        const productName = p.name.toLowerCase();
+        const productWeight = p.weight ? p.weight.toString() : "";
+        
+        // Har bir so'z mahsulot nomida yoki grammida bor bo'lishi kerak
+        return searchWords.every(word => {
+          return productName.includes(word) || productWeight.includes(word);
+        });
+      });
+      
+      setSuggestions(filtered);
       setShowSug(true);
       setSelectedSuggestionIndex(-1); // Har safar qidirganda indexni qayta boshlash
     } else {
@@ -103,6 +127,23 @@ export default function NewOrder() {
       setFocusedLineId(newLineId);
       return [...l, { id: newLineId, productId: p.id, name: p.name, image: p.image, qty: 0, price: p.price, discount: 0 }];
     });
+  };
+
+  // Filter modaldan mahsulotlarni qo'shish
+  const handleFilterApply = (selectedItems: {product: Product, qty: number}[]) => {
+    selectedItems.forEach(item => {
+      const p = item.product;
+      const qty = item.qty;
+      const newLineId = Date.now() + Math.random();
+      setLines(l => {
+        const existing = l.find(x => x.productId === p.id);
+        if (existing) {
+          return l.map(x => x.productId === p.id ? { ...x, qty: x.qty + qty } : x);
+        }
+        return [...l, { id: newLineId, productId: p.id, name: p.name, image: p.image, qty, price: p.price, discount: 0 }];
+      });
+    });
+    setShowFilterModal(false);
   };
 
   // Fokusni jadval ichidagi miqdor inputiga o'tkazish
@@ -176,7 +217,7 @@ export default function NewOrder() {
     if (!customer || lines.length === 0) return;
     
     // Yaratish rejimida bo'lsa (yangi), mahsulotlar sonini kamaytirish va saqlash
-    if (!existingOrder) {
+    if (!existingOrder && !createdOrderId) {
       // Mahsulotlar sonini kamaytirish
       for (const line of lines) {
         const product = products.find(p => p.id === line.productId);
@@ -191,154 +232,238 @@ export default function NewOrder() {
         customer, 
         phone, 
         date: new Date().toISOString(),
-        status: "Jo'natilgan" as OrderStatus, // Saqlanganda avtomatik Jo'natilgan bo'ladi
+        status: "Jo'natilmagan" as OrderStatus, // Saqlanganda Jo'natilmagan bo'ladi (hali print qilinmagan)
         warehouse, 
         address, 
         comment, 
         currency, 
         lines,
+        isWarehousePrinted: false // Yaratilganda false - hali print qilinmagan
       };
       
-      await addOrder(newOrder);
+      const created = await addOrder(newOrder);
       
-      // Formani tozalash lekin o'sha sahifada qolish
-      setCustomer("");
-      setPhone("");
-      setAddress("");
-      setComment("");
-      setLines([]);
-      setSearch("");
+      // ✅ Yaratilgan buyurtma ID sini saqlaymiz
+      if (created && created.id) {
+        setCreatedOrderId(created.id);
+      }
       
-      // Success message
+      // ✅ Formani tozalash kerak EMAS - foydalanuvchi shu yerda qoladi
+      // ✅ Navigate qilmaymiz - foydalanuvchi "Yangi zakaz" sahifasida qoladi
+      // ✅ Faqat success xabari ko'rsatamiz
       setSaved(true);
       setTimeout(() => { setSaved(false); }, 1500);
-      
-      // Fokusni mijoz ismi inputiga qaytarish
-      setTimeout(() => {
-        const customerInput = document.querySelector('input[placeholder="Mijoz ismi"]') as HTMLInputElement;
-        if (customerInput) {
-          customerInput.focus();
-        }
-      }, 200);
     } else {
       // Tahrirlash rejimi (statusni yoki boshqa narsani saqlash)
-      await updateOrder(existingOrder.id, { 
-        status, 
-        customer, 
-        phone, 
-        warehouse, 
-        address, 
-        comment, 
-        currency, 
-        lines 
-      });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      const orderIdToUpdate = existingOrder?.id || createdOrderId;
+      if (orderIdToUpdate) {
+        await updateOrder(orderIdToUpdate, { 
+          status, 
+          customer, 
+          phone, 
+          warehouse, 
+          address, 
+          comment, 
+          currency, 
+          lines 
+        });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
     }
   };
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     if (lines.length === 0 && !customer) return;
     
-    // Excel workbook yaratish
-    const wb = XLSX.utils.book_new();
+    // ==================== PROFESSIONAL EXCEL EXPORT (ExcelJS) ====================
     
-    // ==================== RASMGA 100% MOS FORMAT ====================
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Заказ", {
+      pageSetup: {
+        paperSize: 9, // A4
+        orientation: 'portrait',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        margins: {
+          left: 0.7, top: 0.75, right: 0.7, bottom: 0.75,
+          header: 0.3, footer: 0.3
+        },
+        horizontalCentered: true
+      }
+    });
     
-    // Zakas raqami (dinamik)
-    const orderNumber = Date.now().toString().slice(-5); // Oxirgi 5 raqam
+    // ==================== BACKEND MA'LUMOTLARINI OLISH ====================
+    
+    const orderNumber = Date.now().toString().slice(-5);
     const today = new Date();
     const formattedDate = `${String(today.getDate()).padStart(2, '0')}.${String(today.getMonth() + 1).padStart(2, '0')}.${today.getFullYear()}`;
     
-    // Header (rasmga mos)
-    const headerData = [
-      [`Сборочный лист – Заказ № ${orderNumber} от ${formattedDate}`],
-      [""],
-      [`Клиент ${customer}`],
-      [`Склад: ${warehouse}`],
-      [""],
-    ];
+    // ==================== USTUNLAR KENGLIGI (Merge qilishdan OLDIN!) ====================
     
-    // Jadval sarlavhasi (rasmga mos)
-    const tableHeaders = [["№", "Наименование", "Кол-во уп.", "Тип упаковки", "Кол-во шт.", "Ед. изм."]];
+    worksheet.getColumn(1).width = 5;   // №
+    worksheet.getColumn(2).width = 55;  // Naimenovaniye (keng)
+    worksheet.getColumn(3).width = 13;  // Kol-vo up.
+    worksheet.getColumn(4).width = 18;  // Tip upakovki
+    worksheet.getColumn(5).width = 13;  // Kol-vo sht.
+    worksheet.getColumn(6).width = 10;  // Ed. izm.
     
-    // Mahsulotlar ma'lumotlari (RASMGA MOS)
-    const tableData = lines.map((l, i) => {
-      const product = products.find(p => p.id === l.productId);
+    // ==================== HEADER (Rasmga 100% mos) ====================
+    
+    // Row 1: Title (Bold, 14pt) - MERGE A1:F1
+    worksheet.mergeCells('A1:F1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = `Сборочный лист – Заказ № ${orderNumber} от ${formattedDate}`;
+    titleCell.font = { name: 'Arial', size: 14, bold: true };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    worksheet.getRow(1).height = 25;
+    
+    // Row 2: Bo'sh - MERGE A2:F2 (to'g'rilandi!)
+    worksheet.mergeCells('A2:F2');
+    worksheet.getRow(2).height = 10;
+    
+    // Row 3: Klient - MERGE A3:F3
+    worksheet.mergeCells('A3:F3');
+    const clientCell = worksheet.getCell('A3');
+    clientCell.value = `Клиент ${customer}`;
+    clientCell.font = { name: 'Arial', size: 11, bold: false };
+    clientCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    worksheet.getRow(3).height = 20;
+    
+    // Row 4: Sklad - MERGE A4:F4
+    worksheet.mergeCells('A4:F4');
+    const warehouseCell = worksheet.getCell('A4');
+    warehouseCell.value = `Склад: ${warehouse}`;
+    warehouseCell.font = { name: 'Arial', size: 11, bold: false };
+    warehouseCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    worksheet.getRow(4).height = 20;
+    
+    // Row 5: Bo'sh - MERGE A5:F5 (to'g'rilandi!)
+    worksheet.mergeCells('A5:F5');
+    worksheet.getRow(5).height = 10;
+    
+    // ==================== JADVAL SARLAVHASI (Row 6) ====================
+    
+    const headerRow = worksheet.getRow(6);
+    headerRow.values = ['№', 'Наименование', 'Кол-во уп.', 'Тип упаковки', 'Кол-во шт.', 'Ед. изм.'];
+    headerRow.height = 20;
+    
+    // Header style (Bold, border, centered)
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Arial', size: 11, bold: true };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9D9D9' } // Light gray background
+      };
+    });
+    
+    // ==================== MAHSULOTLAR (Backend ma'lumotlari) ====================
+    
+    let currentRow = 7;
+    lines.forEach((line, index) => {
+      const product = products.find(p => p.id === line.productId);
       const packQty = product?.packQuantity || 1;
       const weight = product?.weight || 0;
       
-      // MUHIM: Mahsulot nomini rasmga mos formatlash
-      // Format: "Mahsulot nomi og'irligi xpaketga_soni" (masalan: "Coca Cola 500g x24")
-      const productNameFormatted = weight > 0 
-        ? `${l.name} ${weight}г x${packQty}` 
-        : `${l.name} x${packQty}`;
+      // Mahsulot nomi formatlash (backend ma'lumotlari)
+      const productName = weight > 0 
+        ? `${line.name} ${weight}г x${packQty}` 
+        : `${line.name} x${packQty}`;
       
-      // MUHIM: "Kol-vo sht." = Kol-vo upakovok × packQuantity (jami dona soni)
-      const totalPieces = l.qty * packQty;
+      const totalPieces = line.qty * packQty;
       
-      return [
-        i,                          // № (0, 1, 2...)
-        productNameFormatted,       // Naimenovaniye (rasmga mos: "Coca Cola 500г x24")
-        l.qty,                      // Kol-vo upakovok (zakas miqdori: 1.0, 10.0, 2.0...)
-        "Упаковка",                 // Tip upakovki
-        totalPieces,                // Kol-vo sht. (jami dona: 120, 240, 20...)
-        "шт"                        // Ed. izm.
+      const row = worksheet.getRow(currentRow);
+      row.values = [
+        index, // №
+        productName, // Naimenovaniye
+        line.qty, // Kol-vo up.
+        'Упаковка', // Tip upakovki
+        totalPieces, // Kol-vo sht.
+        'шт' // Ed. izm.
       ];
+      
+      row.height = 30; // Auto-height
+      
+      // Cell styles
+      row.eachCell((cell, colNumber) => {
+        cell.font = { name: 'Arial', size: 11 };
+        cell.alignment = { 
+          vertical: 'middle', 
+          horizontal: colNumber === 2 ? 'left' : 'center', // Nomi left, qolganlari center
+          wrapText: true 
+        };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+        
+        // Number format
+        if (colNumber === 3) {
+          cell.numFmt = '0.0'; // 1.0, 2.0 format
+        }
+      });
+      
+      currentRow++;
     });
     
-    // "Obshchee kol-vo upakovok" qatori (rasmga mos)
+    // ==================== FOOTER (Jami qator) ====================
+    
+    currentRow++; // Bo'sh qator
+    const totalRow = worksheet.getRow(currentRow);
     const totalPackages = lines.reduce((sum, l) => sum + l.qty, 0);
-    const footerRow = ["", "", `Общее кол-во уп.`, totalPackages, "", ""];
     
-    // Barcha ma'lumotlarni birlashtirish
-    const allData = [...headerData, ...tableHeaders, ...tableData, [""], [footerRow]];
+    totalRow.values = ['', '', 'Общее кол-во уп.', totalPackages, '', ''];
+    totalRow.height = 20;
     
-    const ws = XLSX.utils.aoa_to_sheet(allData);
-    
-    // Ustunlar kengligi (rasmga mos)
-    ws["!cols"] = [
-      { wch: 5 },   // №
-      { wch: 55 },  // Naimenovaniye (keng - chunki batafsil ma'lumot)
-      { wch: 13 },  // Kol-vo up.
-      { wch: 18 },  // Tip upakovki
-      { wch: 13 },  // Kol-vo sht.
-      { wch: 10 }   // Ed. izm.
-    ];
-    
-    // Qatorlar balandligi
-    ws["!rows"] = [
-      { hpt: 25 },  // Title
-      { hpt: 15 },  // Bo'sh
-      { hpt: 20 },  // Klient
-      { hpt: 20 },  // Sklad
-    ];
-    
-    // Raqamlarni to'g'ri formatda ko'rsatish
-    const startRow = 6; // Ma'lumotlar 6-qatordan boshlanadi
-    for (let i = 0; i < tableData.length; i++) {
-      const rowNum = startRow + i;
-      
-      // Kol-vo upakovok (C ustuni) - desimal raqam formati (1.0, 10.0)
-      const cellC = `C${rowNum}`;
-      if (ws[cellC]) {
-        ws[cellC].t = 'n'; // number type
-        ws[cellC].z = '0.0'; // format: 1.0
+    // Footer style (Bold)
+    totalRow.eachCell((cell, colNumber) => {
+      if (colNumber === 3 || colNumber === 4) {
+        cell.font = { name: 'Arial', size: 11, bold: true };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
       }
+    });
+    
+    // ==================== FAYLNI YUKLAB OLISH ====================
+    
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Заказ_${orderNumber}_${customer.replace(/\s+/g, "_")}_${formattedDate.replace(/\./g, "-")}.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    
+    // ==================== STATUS YANGILASH ====================
+    
+    const orderIdToUpdate = existingOrder?.id || createdOrderId;
+    if (orderIdToUpdate) {
+      await updateOrder(orderIdToUpdate, { 
+        isWarehousePrinted: true,
+        status: "Jo'natilgan" as OrderStatus 
+      });
       
-      // Kol-vo sht. (E ustuni) - butun raqam formati (120, 240)
-      const cellE = `E${rowNum}`;
-      if (ws[cellE]) {
-        ws[cellE].t = 'n'; // number type
-      }
+      setStatus("Jo'natilgan");
+      setSaved(true);
+      setTimeout(() => { setSaved(false); }, 2000);
     }
-    
-    XLSX.utils.book_append_sheet(wb, ws, "Заказ");
-    
-    // ==================== FAYLNI AVTOMATIK YUKLAB OLISH ====================
-    
-    const fileName = `Заказ_${orderNumber}_${customer.replace(/\s+/g, "_")}_${formattedDate.replace(/\./g, "-")}.xlsx`;
-    XLSX.writeFile(wb, fileName);
   };
 
   return (
@@ -377,15 +502,85 @@ export default function NewOrder() {
             {saved && <span className="text-sm text-green-600 font-medium">✓ Zakas saqlandi!</span>}
             <div className="flex items-center gap-1.5 ml-1">
               {(["Jo'natilgan", "Jo'natilmagan", "Bekor qilindi"] as OrderStatus[]).map(s => (
-                <button key={s} onClick={() => setStatus(s)} className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${status === s ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600 hover:border-blue-400"}`}>
+                <button 
+                  key={s} 
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setStatus(s);
+                  }} 
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${status === s ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 text-gray-600 hover:border-blue-400"}`}
+                >
                   {s}
                 </button>
               ))}
             </div>
-            <button onClick={exportExcel} title="Excel yuklab olish" className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-green-300 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-50 transition-colors">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9,15 12,18 15,15"/></svg>
-              Excel
-            </button>
+            
+            {/* Print Menu */}
+            <div className="relative" ref={printMenuRef}>
+              <button 
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowPrintMenu(!showPrintMenu);
+                }} 
+                title="Print menyu" 
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                  <rect x="6" y="14" width="12" height="8"></rect>
+                </svg>
+                Print
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </button>
+              
+              {showPrintMenu && (
+                <div className="absolute right-0 mt-2 w-72 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl overflow-hidden z-50">
+                  <div className="py-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        exportExcel();
+                        setShowPrintMenu(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <div className="font-medium">Заказ на склад</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Excel formatda yuklab olish</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        alert("Zakas pokupatelya - Keyingi versiyada");
+                        setShowPrintMenu(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <div className="font-medium">Заказ покупателя</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Mijoz uchun hisob</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        alert("Schet pokupatelyu - Keyingi versiyada");
+                        setShowPrintMenu(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <div className="font-medium">Счет покупателю</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">To'lov hisob-fakturasi</div>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mb-5">
@@ -415,7 +610,9 @@ export default function NewOrder() {
                     {customerSuggestions.map((name, idx) => (
                       <button 
                         key={idx} 
-                        onClick={() => {
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
                           setCustomer(name);
                           setShowCustomerSug(false);
                         }} 
@@ -457,7 +654,22 @@ export default function NewOrder() {
           </div>
 
           <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Mahsulot qidirish</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Mahsulot qidirish</label>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowFilterModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+              >
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filter
+              </button>
+            </div>
             <div className="relative" ref={searchRef} style={{ zIndex: 100 }}>
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" /></svg>
               <input 
@@ -632,7 +844,14 @@ export default function NewOrder() {
                         <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">{formatPrice(line.price, currency)} {getCurrencySymbol(currency)}</td>
                         <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">{weight > 0 ? `${weight}g` : "—"}</td>
                         <td className="px-4 py-2.5 font-semibold text-gray-800 dark:text-white">{formatPrice(Math.round(line.qty * line.price * (1 - line.discount / 100)), currency)} {getCurrencySymbol(currency)}</td>
-                        <td className="px-4 py-2.5"><button type="button" onClick={() => removeLine(line.id)} className="p-1 text-gray-400 hover:text-red-500"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></td>
+                        <td className="px-4 py-2.5"><button 
+                          type="button" 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            removeLine(line.id);
+                          }} 
+                          className="p-1 text-gray-400 hover:text-red-500"
+                        ><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></td>
                       </tr>
                     );
                   })}
@@ -671,6 +890,14 @@ export default function NewOrder() {
           </div>
         </div>
       )}
+      
+      {/* Filter Modal */}
+      <FilterModal
+        isOpen={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        onApplyFilter={handleFilterApply}
+        allProducts={products}
+      />
     </>
   );
 }

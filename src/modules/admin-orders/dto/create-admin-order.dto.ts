@@ -38,6 +38,10 @@ export class CreateAdminOrderDto {
   @IsOptional()
   currency?: string;
 
+  @ApiProperty({ description: 'Skladga yuborilganligi', example: false, default: false })
+  @IsOptional()
+  isWarehousePrinted?: boolean;
+
   @ApiProperty({ 
     description: 'Buyurtma mahsulotlari',
     type: [CreateOrderLineDto],

@@ -10,7 +10,7 @@ interface OrdersContextType {
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (id: number, product: Partial<Product>) => Promise<void>;
   deleteProduct: (id: number) => Promise<void>;
-  addOrder: (order: Omit<Order, 'id' | 'orderNumber'>) => Promise<void>;
+  addOrder: (order: Omit<Order, 'id' | 'orderNumber'>) => Promise<Order | undefined>;
   updateOrder: (id: number, order: Partial<Order>) => Promise<void>;
   deleteOrder: (id: number) => Promise<void>;
 }
@@ -18,7 +18,7 @@ interface OrdersContextType {
 const OrdersContext = createContext<OrdersContextType | undefined>(undefined);
 
 // Backend API URL
-const API_URL = import.meta.env.VITE_API_URL || 'https://admin-backend-3-ss1w.onrender.com';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export function OrdersProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -117,11 +117,13 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       if (data.success) {
         setOrders(prev => [...prev, data.data]);
+        return data.data as Order;
       }
     } catch (error) {
       console.error('Buyurtma qo\'shishda xatolik:', error);
       alert('Buyurtma qo\'shib bo\'lmadi!');
     }
+    return undefined;
   }
 
   // Buyurtmani yangilash

@@ -356,8 +356,12 @@ export default function Orders() {
                             <td className="px-4 py-3 font-mono font-semibold text-blue-600 dark:text-blue-400">{o.orderNumber}</td>
                             <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">{o.customer}</td>
                             <td className="px-4 py-3 text-gray-500">{o.date.slice(0, 10)}</td>
-                            <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">{Math.round(total).toLocaleString()} {o.currency}</td>
-                            <td className="px-4 py-3"><Badge size="sm" color={statusColor[o.status]}>{o.status}</Badge></td>
+                            <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">
+                              {o.isWarehousePrinted ? `${Math.round(total).toLocaleString()} ${o.currency}` : "-"}
+                            </td>
+                            <td className="px-4 py-3">
+                              {o.isWarehousePrinted ? <Badge size="sm" color={statusColor[o.status]}>{o.status}</Badge> : "-"}
+                            </td>
                           </tr>
                         );
                       })}

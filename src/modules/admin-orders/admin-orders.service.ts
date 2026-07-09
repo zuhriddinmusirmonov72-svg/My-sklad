@@ -65,6 +65,7 @@ export class AdminOrdersService {
       comment: createDto.comment || '',
       currency: createDto.currency || 'USD',
       lines: createDto.lines || [],
+      isWarehousePrinted: createDto.isWarehousePrinted || false,
       createdAt: new Date().toISOString(),
     };
 

@@ -15,6 +15,7 @@ export default function ProductsSection({ products, onAdd, onUpdate, onDelete }:
   const [editing, setEditing] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleAdd = async () => {
     // Validatsiya
@@ -77,6 +78,16 @@ export default function ProductsSection({ products, onAdd, onUpdate, onDelete }:
     setForm({ name: "", image: "", stock: 0, price: 0, category: "", weight: 0, packQuantity: 1 });
   };
 
+  // Qidiruv funksiyasi
+  const filteredProducts = products.filter(p => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      p.name.toLowerCase().includes(query) ||
+      (p.category && p.category.toLowerCase().includes(query))
+    );
+  });
+
   return (
     <div className="mb-4 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
       <div
@@ -99,6 +110,45 @@ export default function ProductsSection({ products, onAdd, onUpdate, onDelete }:
 
       {open && (
         <div className="p-4">
+          {/* Qidiruv qutisi */}
+          <div className="mb-4">
+            <div className="relative">
+              <svg 
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" 
+                width="16" 
+                height="16" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Mahsulot yoki kategoriya nomini kiriting..."
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 pl-10 pr-10 py-2.5 text-sm text-gray-800 dark:text-white focus:border-violet-500 focus:outline-none"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  title="Tozalash"
+                >
+                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {searchQuery && (
+              <p className="mt-2 text-xs text-gray-500">
+                {filteredProducts.length} ta mahsulot topildi ({products.length} tadan)
+              </p>
+            )}
+          </div>
+
           {adding && (
             <div className="mb-4 rounded-xl border border-violet-200 dark:border-violet-800/50 bg-violet-50/50 dark:bg-violet-500/5 p-4">
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
@@ -203,9 +253,11 @@ export default function ProductsSection({ products, onAdd, onUpdate, onDelete }:
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {products.length === 0 ? (
-                  <tr><td colSpan={8} className="py-8 text-center text-gray-400 text-sm">Hali mahsulot yo'q</td></tr>
-                ) : products.map(p => (
+                {filteredProducts.length === 0 ? (
+                  <tr><td colSpan={8} className="py-8 text-center text-gray-400 text-sm">
+                    {searchQuery ? `"${searchQuery}" bo'yicha mahsulot topilmadi` : "Hali mahsulot yo'q"}
+                  </td></tr>
+                ) : filteredProducts.map(p => (
                   <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                     <td className="px-4 py-2.5">
                       {p.image ? (

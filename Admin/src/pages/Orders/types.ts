@@ -33,4 +33,5 @@ export interface Order {
   comment: string;
   currency: string;
   lines: OrderLine[];
+  isWarehousePrinted?: boolean;
 }
