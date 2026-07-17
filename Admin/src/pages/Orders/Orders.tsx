@@ -11,7 +11,7 @@ const statusColor: Record<OrderStatus, "success" | "warning" | "primary" | "erro
 };
 
 export default function Orders() {
-  const { products, orders, addProduct, deleteProduct, updateProduct, addOrder } = useOrders();
+  const { products, orders, addProduct, deleteProduct, updateProduct, addOrder, refreshData, isLoadingData } = useOrders();
   const [orderOpen, setOrderOpen] = useState(false);
   const [status, setStatus] = useState<OrderStatus>("Jo'natilmagan");
   const [customer, setCustomer] = useState("");
@@ -140,6 +140,8 @@ export default function Orders() {
         onAdd={addProduct}
         onUpdate={updateProduct}
         onDelete={deleteProduct}
+        onRefresh={refreshData}
+        isLoading={isLoadingData}
       />
 
       {/* Orders Section */}
@@ -154,6 +156,17 @@ export default function Orders() {
             <span className="font-semibold text-gray-700 dark:text-gray-200">Yangi zakas</span>
             {orders.length > 0 && <span className="bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 text-xs font-bold px-2 py-0.5 rounded-full">{orders.length} ta saqlangan</span>}
           </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); refreshData(); }}
+            disabled={isLoadingData}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Ma'lumotlarni yangilash"
+          >
+            <svg className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {isLoadingData ? 'Yuklanmoqda...' : 'Yangilash'}
+          </button>
         </div>
 
         {orderOpen && (

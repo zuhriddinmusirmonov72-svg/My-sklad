@@ -1,22 +1,5 @@
 services:
-  # NestJS Swagger Backend
-  - type: web
-    name: admin-nestjs-backend
-    env: node
-    region: frankfurt
-    plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm run start:prod
-    healthCheckPath: /
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: 3000
-      - key: DATABASE_URL
-        sync: false
-    
-  # Express Backend (Admin API)
+  # Express Backend (Admin API) — PostgreSQL bilan
   - type: web
     name: admin-express-backend
     env: node
@@ -25,9 +8,21 @@ services:
     rootDir: Admin/backend
     buildCommand: npm install
     startCommand: node server.js
-    healthCheckPath: /
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3001
+      - key: DATABASE_URL
+        fromDatabase:
+          name: admin-panel-db
+          property: connectionString
+
+databases:
+  # Bepul PostgreSQL database (Render managed)
+  - name: admin-panel-db
+    plan: free
+    region: frankfurt
+    databaseName: admin_panel
+    user: admin_user

@@ -1,4 +1,5 @@
-# Netlify Configuration for Admin Panel (React + Vite)
+# Root netlify.toml — Admin Panel Frontend Deploy
+# Bu fayl GitHub repo root'idan Netlify deploy qilganda ishlatiladi
 
 [build]
   base = "Admin"
@@ -8,9 +9,9 @@
 # Node.js version
 [build.environment]
   NODE_VERSION = "20"
-  VITE_API_URL = "https://admin-express-backend.onrender.com"
 
-# Redirects for SPA (React Router) — MUHIM! Netlify link bilan kirish uchun
+# SPA uchun — MUHIM! Netlify link bilan /dashboard, /orders/new kabi routelarga
+# kirganda 404 bo'lmasligi uchun
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -20,11 +21,10 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    X-Frame-Options = "DENY"
+    X-Frame-Options = "SAMEORIGIN"
     X-Content-Type-Options = "nosniff"
     X-XSS-Protection = "1; mode=block"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Access-Control-Allow-Origin = "*"
 
 # Cache static assets
 [[headers]]

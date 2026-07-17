@@ -3,7 +3,7 @@ import ProductsSection from "./ProductsSection";
 import { useOrders } from "./OrdersContext";
 
 export default function Products() {
-  const { products, addProduct, updateProduct, deleteProduct } = useOrders();
+  const { products, addProduct, updateProduct, deleteProduct, refreshData, isLoadingData } = useOrders();
 
   return (
     <>
@@ -13,6 +13,8 @@ export default function Products() {
         onAdd={addProduct}
         onUpdate={updateProduct}
         onDelete={deleteProduct}
+        onRefresh={refreshData}
+        isLoading={isLoadingData}
       />
     </>
   );

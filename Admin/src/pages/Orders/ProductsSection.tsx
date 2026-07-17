@@ -6,10 +6,12 @@ interface Props {
   onAdd: (p: Omit<Product, 'id'>) => Promise<void>;
   onUpdate: (id: number, p: Partial<Product>) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
+  onRefresh: () => Promise<void>;
+  isLoading: boolean;
 }
 
-export default function ProductsSection({ products, onAdd, onUpdate, onDelete }: Props) {
-  const [open, setOpen] = useState(false);
+export default function ProductsSection({ products, onAdd, onUpdate, onDelete, onRefresh, isLoading }: Props) {
+  const [open, setOpen] = useState(true);
   const [form, setForm] = useState({ name: "", image: "", stock: 0, price: 0, category: "", weight: 0, packQuantity: 1 });
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
@@ -89,7 +91,9 @@ export default function ProductsSection({ products, onAdd, onUpdate, onDelete }:
   });
 
   return (
-    <div className="mb-4 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
+    <div className="mb-4 rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden"
+      onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+    >
       <div
         className="flex items-center justify-between px-5 py-3 cursor-pointer select-none bg-gray-50 dark:bg-gray-800/40"
         onClick={() => setOpen(v => !v)}
@@ -99,13 +103,26 @@ export default function ProductsSection({ products, onAdd, onUpdate, onDelete }:
           <span className="font-semibold text-gray-700 dark:text-gray-200">Mahsulotlar</span>
           <span className="bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400 text-xs font-bold px-2 py-0.5 rounded-full">{products.length}</span>
         </div>
-        <button
-          onClick={e => { e.stopPropagation(); setOpen(true); setAdding(true); }}
-          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 transition-colors"
-        >
-          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          Yangi mahsulot
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={e => { e.stopPropagation(); onRefresh(); }}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Mahsulotlarni yangilash"
+          >
+            <svg className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {isLoading ? 'Yuklanmoqda...' : 'Yangilash'}
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); setOpen(true); setAdding(true); }}
+            className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 transition-colors"
+          >
+            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            Yangi mahsulot
+          </button>
+        </div>
       </div>
 
       {open && (
@@ -132,6 +149,7 @@ export default function ProductsSection({ products, onAdd, onUpdate, onDelete }:
               />
               {searchQuery && (
                 <button
+                  type="button"
                   onClick={() => setSearchQuery("")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                   title="Tozalash"
@@ -228,12 +246,14 @@ export default function ProductsSection({ products, onAdd, onUpdate, onDelete }:
               )}
               <div className="flex gap-2 mt-3">
                 <button 
+                  type="button"
                   onClick={editing ? handleUpdate : handleAdd} 
                   className="px-4 py-1.5 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
                 >
                   {editing ? "Yangilash" : "Saqlash"}
                 </button>
                 <button 
+                  type="button"
                   onClick={handleCancel} 
                   className="px-4 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >

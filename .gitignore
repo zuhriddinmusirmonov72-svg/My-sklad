@@ -3,6 +3,9 @@
 /node_modules
 /build
 
+# All node_modules (nested)
+**/node_modules
+
 # Logs
 logs
 *.log
@@ -35,17 +38,29 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# Environment
+# Environment — local only
 .env
 .env.local
 .env.*.local
 
-# BUT keep production env template
+# But keep production env template
 !.env.production
+
+# Database files (fayl asosidagi DB - ishlatilmaydi endi)
+Admin/backend/database.json
+Admin/backend/database.json.backup
+Admin/db.json
+db.json
 
 # Uploads
 uploads/
 temp/
 
-# Prisma
-# Keep migrations for production deploy
+# Large generated files
+generated-products-*.json
+sample-products-*.json
+ngrok.exe
+
+# Dist folders (nested)
+**/dist
+!Admin/dist

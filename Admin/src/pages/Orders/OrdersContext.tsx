@@ -7,6 +7,7 @@ interface OrdersContextType {
   orders: Order[];
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   isLoadingData: boolean;
+  refreshData: () => Promise<void>;
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (id: number, product: Partial<Product>) => Promise<void>;
   deleteProduct: (id: number) => Promise<void>;
@@ -48,7 +49,6 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Backend bilan bog\'lanishda xatolik:', error);
-      alert('Backend serverga ulanib bo\'lmadi! Server ishga tushganligini tekshiring.');
     } finally {
       setIsLoadingData(false);
     }
@@ -68,7 +68,6 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Mahsulot qo\'shishda xatolik:', error);
-      alert('Mahsulot qo\'shib bo\'lmadi!');
     }
   }
 
@@ -86,7 +85,6 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Mahsulotni yangilashda xatolik:', error);
-      alert('Mahsulot yangilanmadi!');
     }
   }
 
@@ -102,7 +100,6 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Mahsulotni o\'chirishda xatolik:', error);
-      alert('Mahsulot o\'chirilmadi!');
     }
   }
 
@@ -121,7 +118,6 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Buyurtma qo\'shishda xatolik:', error);
-      alert('Buyurtma qo\'shib bo\'lmadi!');
     }
     return undefined;
   }
@@ -140,7 +136,6 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Buyurtmani yangilashda xatolik:', error);
-      alert('Buyurtma yangilanmadi!');
     }
   }
 
@@ -156,7 +151,6 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Buyurtmani o\'chirishda xatolik:', error);
-      alert('Buyurtma o\'chirilmadi!');
     }
   }
 
@@ -167,6 +161,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       orders, 
       setOrders, 
       isLoadingData,
+      refreshData: loadData,
       addProduct,
       updateProduct,
       deleteProduct,

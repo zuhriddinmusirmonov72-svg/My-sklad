@@ -9,14 +9,25 @@ const statusColor: Record<OrderStatus, "success" | "warning" | "primary" | "erro
 };
 
 export default function CustomerOrders() {
-  const { orders } = useOrders();
+  const { orders, refreshData, isLoadingData } = useOrders();
 
   return (
     <>
       <PageMeta title="Mijoz buyurtmalari" description="Barcha buyurtmalar tarixi" />
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+        <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Mijoz buyurtmalari</h2>
+          <button
+            onClick={refreshData}
+            disabled={isLoadingData}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Ma'lumotlarni yangilash"
+          >
+            <svg className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {isLoadingData ? 'Yuklanmoqda...' : 'Yangilash'}
+          </button>
         </div>
         <div className="p-5">
           {orders.length === 0 ? (
